@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "patcwatch"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local feedback change monitoring without model calls"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [{name = "Patcwatch contributors"}]
-dependencies = []
+dependencies = ["requests>=2.32,<3", "cryptography>=42,<47", "msal>=1.31,<2", "keyring>=25,<26", "openpyxl>=3.1,<4"]
 
 [project.scripts]
 patcwatch = "patcwatch.server:main"
@@ -23,4 +23,4 @@ Issues = "https://github.com/jchen446/patcwatch/issues"
 packages = ["patcwatch"]
 
 [tool.setuptools.package-data]
-patcwatch = ["index.html", "samples.json"]
+patcwatch = ["index.html", "samples.json", "service.html"]

@@ -1,11 +1,16 @@
-# Release validation
+# v0.2 integration beta validation
 
-Local macOS / Python 3.9 validation on 2026-09-10:
+2026-09-10, macOS, Python 3.12 (also unit-tested on Python 3.9):
 
-- Five unit tests pass: change/repeat/failure handling, malformed capture atomicity, literal untrusted text, persisted restart deduplication, and source identity isolation.
-- Installed package CLI experiment passes 8/8 cases and blocks the deliberate outbound connection attempt. CLI help/version work.
-- Installed package UI opened in a real browser. The Check source now button showed the changed local feedback draft. The Run offline experiment button produced a fresh 8/8 report with zero model calls under the experiment controls.
-- Requests missing the UI Origin/header are rejected. Requests with an unexpected Host are rejected.
-- GitHub Actions defines Linux, macOS and Windows installation/test jobs. Check the repository's current Actions results for their actual completion status.
+- 13 unit tests pass, including persisted restart deduplication, transactional rollback, exclusive process ownership, Graph destination restrictions, one-time refresh after HTTP 401, workbook identity validation and literal Teams plain text.
+- Larger scheduler test passes: 100 virtual cycles, 1,000 starting records, 198 scheduled checks, 1,332 loopback HTTP requests, three restart recoveries, 100 suppressed duplicate ticks, 20 expected/20 observed events and 123 assertions. Six fault categories preserve successful state. Zero model calls/external connections under the audit controls; actual denied connection probe and production transport denial verified.
+- Installed Microsoft UI: scheduler button displays COMPLETE/PASS. Unconfigured authentication is visibly NOT CONNECTED, not a success.
+- Separate explicitly simulated UI: chat-name discovery returns duplicate names; exact second chat ID selected; SharePoint library/workbook browsing, worksheet/ID/column mapping and source baseline observed. Script-like worksheet content displays literally.
+- macOS LaunchAgent installed from a permanent venv; loopback UI served by launchd. Automatic process restart and state persistence checked.
+- Existing eight-case offline CLI experiment remains supported. Host/Origin validation applies to Microsoft setup actions.
 
-Synthetic local captures only. No live service integration or provider billing telemetry is claimed. Build-time Codex tokens are excluded. Local runtime reports are private and not in the release.
+**Not certified:** real tenant device sign-in, encrypted token renewal against Microsoft, tenant consent/policy, live Teams/SharePoint delivery, overnight/sleep recovery, Windows/Linux keychain behavior. No app registration IDs were supplied for live qualification. Synthetic auth and virtual scheduler time are not proof of these behaviors.
+
+The service performs Microsoft reads and local deterministic comparisons. Build-time Codex use is excluded from zero-runtime-model-call claims. Missing rows are not inferred as deletions. The source does not dispatch to any model provider. Private captures and credentials are not published.
+
+GitHub Actions runs installation, unit tests, both experiments and version checks across Linux/macOS/Windows and Python 3.9/3.13. Consult the current run for the actual verdict.

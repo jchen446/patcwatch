@@ -17,4 +17,5 @@ jobs:
       - run: python -m pip install .
       - run: python -m unittest -v
       - run: patcwatch --experiment --data-dir test-state
+      - run: patcwatch --scheduler-test --data-dir scheduler-test-state
       - run: patcwatch --version

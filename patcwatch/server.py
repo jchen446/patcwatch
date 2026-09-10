@@ -1,4 +1,4 @@
-"""Patcwatch: local, deterministic feedback experiment. Python stdlib only."""
+"""Patcwatch: deterministic local and Microsoft feedback monitoring."""
 import argparse
 import hashlib
 import json
@@ -16,6 +16,7 @@ GUARD = {'blocked_outbound_attempts': 0}
 LOCK = threading.Lock()
 DATA = Path.home() / '.patcwatch'
 MONITOR = None
+SERVICE = None
 
 def audit(event, args):
     if event in {'socket.connect', 'socket.getaddrinfo', 'subprocess.Popen', 'os.system', 'os.exec', 'os.posix_spawn'}:
@@ -158,7 +159,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self.valid_host():
             self.send(403, b'Loopback host required', 'text/plain'); return
         if self.path == '/':
-            self.send(200, (ROOT / 'index.html').read_bytes(), 'text/html; charset=utf-8')
+            self.send(200, (ROOT / ('service.html' if SERVICE else 'index.html')).read_bytes(), 'text/html; charset=utf-8')
+        elif self.path == '/api/service':
+            self.send(200, json.dumps(SERVICE.status() if SERVICE else None).encode(), 'application/json')
         elif self.path == '/api/monitor':
             self.send(200, json.dumps(MONITOR.snapshot() if MONITOR else None).encode(), 'application/json')
         elif self.path == '/api/report':
@@ -170,30 +173,66 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.valid_host():
             self.send(403, b'Loopback host required', 'text/plain'); return
-        if self.path not in ('/api/experiment', '/api/check'):
+        if SERVICE and self.path in ('/api/experiment','/api/check'):
+            self.send(404,b'Use scheduler test', 'text/plain'); return
+        if self.path not in ('/api/experiment', '/api/check') and not (SERVICE and self.path.startswith('/api/service/')):
             self.send(404, b'Not found', 'text/plain'); return
         expected = 'http://127.0.0.1:' + str(self.server.server_port)
         if self.headers.get('Origin') != expected or self.headers.get('X-Patcwatch') != 'local-ui':
             self.send(403, b'Local UI only', 'text/plain'); return
         try:
+            if SERVICE and self.path.startswith('/api/service/'):
+                size = int(self.headers.get('Content-Length','0'))
+                if size < 0 or size > 32768: raise ValueError('Request too large')
+                body = json.loads(self.rfile.read(size) or b'{}')
+                if not isinstance(body,dict): raise ValueError('Expected JSON object')
+                result = SERVICE.action(self.path.removeprefix('/api/service/'), body)
+                self.send(200,json.dumps(result).encode(),'application/json'); return
             if self.path == '/api/check' and MONITOR is None:
                 self.send(409, b'{"error":"Start with --watch FILE"}', 'application/json'); return
             report = MONITOR.check() if self.path == '/api/check' else experiment()
             self.send(200, json.dumps(report).encode(), 'application/json')
-        except (ValueError, OSError) as exc:
-            self.send(500, json.dumps({'error': str(exc)}).encode(), 'application/json')
+        except (ValueError, OSError, KeyError) as exc:
+            message = str(exc) if isinstance(exc,ValueError) else 'Local configuration or storage error'
+            self.send(400, json.dumps({'error':message}).encode(), 'application/json')
+        except Exception as exc:
+            from .scheduler import SourceError
+            message = exc.status if isinstance(exc,SourceError) else 'Request failed; check configuration and Microsoft permissions.'
+            self.send(503,json.dumps({'error':message}).encode(),'application/json')
 
 def main():
-    global DATA, MONITOR
+    global DATA, MONITOR, SERVICE
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--data-dir', type=Path, default=DATA, help='Private state directory (default: ~/.patcwatch)')
+    parser.add_argument('--background', choices=('install','status','uninstall'), help='Manage the macOS background Microsoft service')
+    parser.add_argument('--microsoft', action='store_true', help='Microsoft sign-in, Teams and SharePoint service UI')
+    parser.add_argument('--interval', type=int, default=300, help='Microsoft source polling interval in seconds (30 minimum)')
+    parser.add_argument('--scheduler-test', action='store_true', help='Run the larger isolated scheduler benchmark')
     parser.add_argument('--watch', type=Path, help='Watch a local JSON feedback file every five seconds')
-    parser.add_argument('--version', action='version', version='Patcwatch 0.1.0')
+    parser.add_argument('--version', action='version', version='Patcwatch 0.2.0')
     parser.add_argument('--experiment', action='store_true', help='Run the offline experiment and exit')
     parser.add_argument('--port', type=int, default=8793)
     args = parser.parse_args()
     DATA = args.data_dir.expanduser().resolve()
-    sys.addaudithook(audit)
+    if args.scheduler_test:
+        from .benchmark import run
+        result = run(DATA / 'scheduler-test.json')
+        print(json.dumps(result,indent=2));sys.exit(0 if result['passed'] else 1)
+    if args.microsoft and (args.watch or args.experiment):
+        parser.error('--microsoft cannot be combined with --watch or --experiment')
+    if args.interval < 30: parser.error('--interval must be at least 30 seconds')
+    if not 1 <= args.port <= 65535: parser.error('--port must be 1–65535')
+    if args.background:
+        from .background import manage
+        try: manage(args.background, DATA, args.port, args.interval)
+        except (ValueError,OSError) as exc: parser.exit(1,str(exc)+'\n')
+        return
+    if args.microsoft:
+        from .service import Service
+        try: SERVICE = Service(DATA,args.interval)
+        except (RuntimeError,OSError,ValueError): parser.exit(1,'Cannot start service. Check data directory ownership and configuration.\n')
+    else:
+        sys.addaudithook(audit)
     if args.experiment:
         result = experiment()
         print(json.dumps(result, indent=2))
@@ -225,3 +264,4 @@ def main():
     finally:
         stop.set()
         server.server_close()
+        if SERVICE:SERVICE.close()
