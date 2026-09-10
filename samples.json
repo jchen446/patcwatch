@@ -1,0 +1,10 @@
+[
+ {"name":"Establish baseline","expected":"BASELINE","capture":{"status":"OK","messages":[{"id":"report-01","text":"Ticket field preserves leading zeros."},{"id":"report-02","text":"Country selection is available."}]}},
+ {"name":"Same feedback again","expected":"UNCHANGED","capture":{"status":"OK","messages":[{"id":"report-01","text":"Ticket field preserves leading zeros."},{"id":"report-02","text":"Country selection is available."}]}},
+ {"name":"Changed report","expected":"CHANGED","capture":{"status":"OK","messages":[{"id":"report-01","text":"SIMULATED: leading zero disappears after Save."}]}},
+ {"name":"Repeated change","expected":"UNCHANGED","capture":{"status":"OK","messages":[{"id":"report-01","text":"SIMULATED: leading zero disappears after Save."}]}},
+ {"name":"Source unavailable","expected":"UNAVAILABLE","capture":{"status":"UNAVAILABLE"}},
+ {"name":"Access restored","expected":"UNCHANGED","capture":{"status":"OK","messages":[{"id":"report-01","text":"SIMULATED: leading zero disappears after Save."}]}},
+ {"name":"New feedback","expected":"CHANGED","capture":{"status":"OK","messages":[{"id":"report-03","text":"SIMULATED: please review the customer message spacing."}]}},
+ {"name":"Virtualized message absent","expected":"UNCHANGED","capture":{"status":"OK","messages":[]}}
+]
