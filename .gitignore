@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .venv/
 .DS_Store
+.craylen/
+build/
+dist/
+*.egg-info/
+test-state/

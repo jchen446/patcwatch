@@ -1,7 +1,11 @@
-# Validation
+# Release validation
 
-2026-09-10: CLI and real browser UI experiment passed 8/8 scenarios. The browser Run button produced a fresh persisted report and two template drafts. Experiment guard blocked its deliberate outbound connection attempt. No model SDK or dispatch path exists. Runtime model calls: 0 under these experiment controls.
+Local macOS / Python 3.9 validation on 2026-09-10:
 
-Three unit tests passed: baseline/change/repeat/failure preservation, atomic rejection of duplicate IDs, and literal treatment of untrusted text. CLI help works. A POST without the UI origin/header was rejected with HTTP 403.
+- Five unit tests pass: change/repeat/failure handling, malformed capture atomicity, literal untrusted text, persisted restart deduplication, and source identity isolation.
+- Installed package CLI experiment passes 8/8 cases and blocks the deliberate outbound connection attempt. CLI help/version work.
+- Installed package UI opened in a real browser. The Check source now button showed the changed local feedback draft. The Run offline experiment button produced a fresh 8/8 report with zero model calls under the experiment controls.
+- Requests missing the UI Origin/header are rejected. Requests with an unexpected Host are rejected.
+- GitHub Actions defines Linux, macOS and Windows installation/test jobs. Check the repository's current Actions results for their actual completion status.
 
-This validates synthetic local replay only. No live source integration or provider usage telemetry is claimed. Application-build tokens are excluded. Runtime evidence lives in ignored `.local/latest.json`.
+Synthetic local captures only. No live service integration or provider billing telemetry is claimed. Build-time Codex tokens are excluded. Local runtime reports are private and not in the release.

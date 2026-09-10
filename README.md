@@ -1,40 +1,83 @@
 # Patcwatch
 
-A standalone local UI for testing feedback change detection without runtime model calls. No Craylen dependency, model SDK, API key, external font, analytics or heartbeat.
+**Local feedback monitoring. Zero runtime model calls.**
 
-## Run
+Patcwatch watches a JSON file, detects new or changed messages and puts template-based drafts in a local browser UI. It runs on your computer with no account, API key, Craylen dependency or telemetry.
 
-Requires Python 3.9 or later. No packages to install.
+**v0.1 beta:** local file monitoring and the offline experiment are supported. Teams, Jira, GitHub APIs, original writing and automatic bug fixes are not connected. This is a local application, not a hosted multi-user service.
+
+## Install and run
+
+Install Python 3.9+ first. In a terminal:
 
 ```sh
-python3 app.py
+python3 -m venv .venv
+.venv/bin/pip install https://github.com/jchen446/patcwatch/releases/download/v0.1.0/patcwatch-0.1.0-py3-none-any.whl
+.venv/bin/patcwatch
 ```
 
-Open http://127.0.0.1:8793 and click **Run offline experiment**.
+On Windows, use `py -m venv .venv`, `.venv\Scripts\pip.exe` and `.venv\Scripts\patcwatch.exe` in place of those commands.
+
+Open **http://127.0.0.1:8793**. Click **Run offline experiment** to confirm eight sample scenarios and the outbound-connection guard. Press Ctrl+C in the terminal to stop the app. If the port is busy, use `patcwatch --port 8794` and open that port instead.
+
+Already use pipx? Install the same wheel URL with `pipx install URL`, then run `patcwatch`.
+
+## Watch your own file
+
+Save this as `feedback.json`:
+
+```json
+{"status":"OK","messages":[{"id":"issue-1","text":"Initial feedback."}]}
+```
+
+Start the installed command with `--watch`:
 
 ```sh
-python3 app.py --experiment
+.venv/bin/patcwatch --watch feedback.json
+```
+
+The first successful read establishes a baseline. Edit the text or add a new message with a unique ID. Within five seconds the UI's **Your source** section shows the change and draft. **Check source now** performs an immediate read. Drafts are never sent.
+
+- Restarting with the same file preserves hashes and avoids duplicate drafts.
+- Missing, malformed or unavailable source data preserves the last successful read and is shown as unavailable.
+- Missing messages are not treated as deletions.
+- IDs must be unique nonempty strings; text must be a string. Files are limited to 2 MB and 10,000 distinct IDs.
+- The most recent 200 drafts are retained. This is not a full archival system.
+- For an unavailable capture, write `{"status":"UNAVAILABLE"}`. Prefer atomic file replacement from your exporter.
+
+Private state is stored in `~/.patcwatch`, separately from installed application files. To watch another source, use a separate state directory:
+
+```sh
+.venv/bin/patcwatch --watch other.json --data-dir ./other-state
+```
+
+Keep private captures and state out of Git. Patcwatch only reads the file explicitly supplied on the command line. It does not discover or upload your files. On Windows, privacy follows your user-directory ACLs; Unix-style permission bits are not a Windows access-control guarantee.
+
+## Zero-call evidence
+
+```sh
+.venv/bin/patcwatch --experiment
+.venv/bin/patcwatch --version
+```
+
+The experiment reads bundled **synthetic** captures, hashes content and fills literal templates. Its exit code is nonzero if a scenario or the network-guard probe fails. Evidence is saved in `~/.patcwatch/latest.json` and is viewable from the UI.
+
+There is no model SDK or model-dispatch path. At startup a Python audit hook blocks outbound socket connections, DNS lookups and audited process launches. A deliberate loopback connection attempt confirms blocking before connection. Browser assets are bundled; the UI only requests its local server. Runtime counters are application assertions under these controls, not provider billing telemetry. The hook is not an OS sandbox against malicious native extensions. Codex tokens used to build the application are excluded.
+
+A live service adapter would need a separately scoped network policy and verification. This release does not make live-source claims. Other existing automations are not disabled by installing Patcwatch.
+
+## Development
+
+```sh
+python3 -m pip install .
 python3 -m unittest -v
-python3 app.py --help
+python3 app.py --experiment --data-dir ./test-state
 ```
 
-The CLI experiment exits nonzero when a scenario or network-guard probe fails. The UI displays the eight scenario outcomes, zero model calls, outbound connections, and generated drafts. Evidence is saved to `.local/latest.json` (ignored by Git).
+GitHub Actions runs tests and the installed CLI experiment on Linux, macOS and Windows. The public release includes a Python wheel and SHA256 checksum. No runtime dependencies. Python package build tools are used only during development/installation from source.
 
-## Experiment boundaries
+## Security and support
 
-The sample data is synthetic and contains no customer messages. The process reads `samples.json`, hashes content by message ID, and fills literal templates for changed/new messages. It does not decide whether a change is actionable, write original prose, fix bugs or send messages. Missing virtualized messages are not deletions. Source failure preserves the prior successful state.
+The server binds only to `127.0.0.1` and checks request Host/Origin. Do not expose or proxy it onto the public Internet; it has no user authentication or multi-user isolation. Local users with access to the same machine are within the trust boundary.
 
-At startup a Python audit hook blocks outbound socket connections, DNS resolution and process launch through audited APIs. The experiment verifies this control using an actual attempted loopback connection that is blocked before connect. The HTTP server only binds to 127.0.0.1. The UI talks to this local server; it has no external requests. Same-origin checks protect the experiment POST.
-
-**The zero-call finding applies to this controlled experiment.** It is supported by a stdlib-only execution path, blocked outbound connections/process launches, and no model client or dispatch path. The audit hook is not an OS security sandbox against malicious native code. The zero counters are application assertions under these controls, not independent provider billing telemetry. Codex tokens used to develop the app are excluded.
-
-Live Teams/Jira collection is not connected. Previously configured external automations are not changed by running this app. Adding authenticated live source adapters will require a separate test and scoped network policy. No model-generated status updates run here.
-
-## Files
-
-- `app.py`: deterministic detector, audit guard, experiment and local HTTP server.
-- `index.html`: dashboard and template draft queue, with literal text rendering.
-- `samples.json`: eight repeatable synthetic scenarios.
-- `test_app.py`: state preservation, duplicate rejection and untrusted-text tests.
-
-The detector state is intentionally recreated for each experiment. This is an experiment UI, not yet a persistent production monitor.
+Report bugs through GitHub Issues, using synthetic examples and removing private source text. See [SECURITY.md](SECURITY.md) for vulnerability reporting. MIT licensed.
